@@ -39,9 +39,10 @@ class PrintNode:
         self.is_var = is_var
 
 class SumVarNumNode:
-    def __init__(self, var_name, value_node):
+    def __init__(self, var_name, value_node, is_var=False):
         self.var_name = var_name
         self.value_node = value_node
+        self.is_var = is_var
 
 class SubVarNumNode:
     def __init__(self, var_name, value_node):
@@ -104,17 +105,26 @@ def parse(tokens):
                     
             # --- SOMMA (+=) ---
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '+=':
-                nome_var = tokens[posizione]
-                valore_somma = tokens[posizione+2]
-                
-                if valore_somma == '∞':
-                    valore_somma = float('inf')
-                else:
-                    valore_somma = int(valore_somma)
-                        
-                nodo_assegnazione = SumVarNumNode(nome_var, valore_somma)
-                istruzioni.append(nodo_assegnazione)
-                posizione += 3
+                if tokens[posizione+2].isdigit():
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                    
+                    if valore_somma == '∞':
+                        valore_somma = float('inf')
+                    else:
+                        valore_somma = int(valore_somma)
+                            
+                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=False)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+                    
+                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                            
+                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=True)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
 
             # --- SOTTRAI (-=) ---
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '-=':
@@ -170,9 +180,15 @@ def esegui(nodo, ambiente):
             print(da_stampare, end='')
             
     elif isinstance(nodo, SumVarNumNode):
-        valore = nodo.value_node
         if nodo.var_name in ambiente:
-            ambiente[nodo.var_name] += valore
+            if nodo.is_var:
+                if nodo.value_node in ambiente:
+                    da_sommare = ambiente[nodo.value_node]
+                else:
+                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
+            else:
+                da_sommare = nodo.value_node
+            ambiente[nodo.var_name]+=da_sommare
         else:
             raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
             
@@ -192,7 +208,10 @@ r=635
 printn r
 r-=635
 r+=57
+qwerty=637
+r+=qwerty
 printn r
+printn qwerty
 print 'Ciao Mondo'
 """
 ambiente_memoria = {}
