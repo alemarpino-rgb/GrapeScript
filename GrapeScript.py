@@ -4,7 +4,7 @@ import re
 # 1. TOKENIZZATORE (Gestisce anche i ritorni a capo)
 # ==========================================
 def tokenizza(codice):
-    pattern = r"'[^'\n]*'|\"[^\"]*\"|-=|\+=|[a-zA-Zà-ù]+|\d+|[=+\-*/\"',!∞]"
+    pattern = r"'[^'\n]*'|\"[^\"]*\"|-=|\+=|\*=|\/=|--|\+\+|[a-zA-Zà-ù]+|\d+|[=+\-*/\"',!∞{}]"
     
     tokens = []
     for t in re.findall(pattern, codice):
@@ -45,13 +45,33 @@ class SumVarNumNode:
         self.is_var = is_var
 
 class SubVarNumNode:
-    def __init__(self, var_name, value_node):
+    def __init__(self, var_name, value_node, is_var=False):
         self.var_name = var_name
         self.value_node = value_node
+        self.is_var = is_var
+class MulVarNumNode:
+    def __init__(self, var_name, value_node, is_var=False):
+        self.var_name = var_name
+        self.value_node = value_node
+        self.is_var = is_var
+
+class IncrementNode:
+    def __init__(self, var_name):
+        self.var_name = var_name
+class DecrementNode:
+    def __init__(self, var_name):
+        self.var_name = var_name
 
 class ProgramNode:
     def __init__(self, instructions):
         self.instructions = instructions
+# REPEAT, che secondo me, è geniale
+class RepeatNode:
+    def __init__(self, count, body, is_var=False):
+        self.count = count      # int, oppure nome variabile se is_var=True
+        self.body = body        # un ProgramNode
+        self.is_var = is_var
+
 
 
 # ==========================================
@@ -102,7 +122,16 @@ def parse(tokens):
                     nodo_stampa = PrintNode(tokens[posizione+1], printf, is_var=True)
                     istruzioni.append(nodo_stampa)
                     posizione += 2
-                    
+            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '++':
+                nome_var=tokens[posizione]
+                nodo_assegnazione = IncrementNode(nome_var)
+                istruzioni.append(nodo_assegnazione)
+                posizione += 2
+            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '--':
+                nome_var=tokens[posizione]
+                nodo_assegnazione = DecrementNode(nome_var)
+                istruzioni.append(nodo_assegnazione)
+                posizione += 2
             # --- SOMMA (+=) ---
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '+=':
                 if tokens[posizione+2].isdigit():
@@ -128,17 +157,47 @@ def parse(tokens):
 
             # --- SOTTRAI (-=) ---
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '-=':
-                nome_var = tokens[posizione]
-                valore_sottrazione = tokens[posizione+2]
-                
-                if valore_sottrazione == '∞':
-                    valore_sottrazione = float('inf')
-                else:
-                    valore_sottrazione = int(valore_sottrazione)
-                        
-                nodo_assegnazione = SubVarNumNode(nome_var, valore_sottrazione)
-                istruzioni.append(nodo_assegnazione)
-                posizione += 3
+                if tokens[posizione+2].isdigit():
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                    
+                    if valore_somma == '∞':
+                        valore_somma = float('inf')
+                    else:
+                        valore_somma = int(valore_somma)
+                            
+                    nodo_assegnazione = SubVarNumNode(nome_var, valore_somma, is_var=False)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+                    
+                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                            
+                    nodo_assegnazione = SubVarNumNode(nome_var, valore_somma, is_var=True)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '*=':
+                if tokens[posizione+2].isdigit():
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                    
+                    if valore_somma == '∞':
+                        valore_somma = float('inf')
+                    else:
+                        valore_somma = int(valore_somma)
+                            
+                    nodo_assegnazione = MulVarNumNode(nome_var, valore_somma, is_var=False)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+                    
+                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                            
+                    nodo_assegnazione = MulVarNumNode(nome_var, valore_somma, is_var=True)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
             else:
                 posizione += 1
         else:
@@ -178,7 +237,16 @@ def esegui(nodo, ambiente):
             print(da_stampare, end='\n')
         else:
             print(da_stampare, end='')
-            
+    elif isinstance(nodo, IncrementNode):
+        if nodo.var_name in ambiente:
+            ambiente[nodo.var_name]+=1
+        else:
+            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
+    elif isinstance(nodo, DecrementNode):
+        if nodo.var_name in ambiente:
+            ambiente[nodo.var_name]-=1
+        else:
+            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
     elif isinstance(nodo, SumVarNumNode):
         if nodo.var_name in ambiente:
             if nodo.is_var:
@@ -193,9 +261,28 @@ def esegui(nodo, ambiente):
             raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
             
     elif isinstance(nodo, SubVarNumNode):
-        valore = nodo.value_node
         if nodo.var_name in ambiente:
-            ambiente[nodo.var_name] -= valore
+            if nodo.is_var:
+                if nodo.value_node in ambiente:
+                    da_sottrarre = ambiente[nodo.value_node]
+                else:
+                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
+            else:
+                da_sottrarre = nodo.value_node
+            ambiente[nodo.var_name]-=da_sottrarre
+        else:
+            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
+
+    elif isinstance(nodo, MulVarNumNode):
+        if nodo.var_name in ambiente:
+            if nodo.is_var:
+                if nodo.value_node in ambiente:
+                    da_moltiplicare = ambiente[nodo.value_node]
+                else:
+                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
+            else:
+                da_moltiplicare = nodo.value_node
+            ambiente[nodo.var_name]*=da_moltiplicare
         else:
             raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
 
@@ -203,16 +290,15 @@ def esegui(nodo, ambiente):
 # ==========================================
 # TEST DI ESECUZIONE
 # ==========================================
+#∞∞∞∞∞∞∞ ecco qui il simbolo, così è più facile prenderlo
 codice_sorgente = """
-r=635
+r=5
+g=5
+r*=g
+r++
+g--
 printn r
-r-=635
-r+=57
-qwerty=637
-r+=qwerty
-printn r
-printn qwerty
-print 'Ciao Mondo'
+print g
 """
 ambiente_memoria = {}
 elenco_token = tokenizza(codice_sorgente)
