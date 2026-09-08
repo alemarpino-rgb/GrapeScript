@@ -1,22 +1,60 @@
 import re
+import sys
+
+
+# ==========================================
+# GrapeScript Di Alessandro Marpino
+# ==========================================
+#
+# I'm italian, so all the comments are in italian : )
+#
+# Com'è fatto questo interprete?
+#
+# E' composto da 4 parti principali: 
+#   1. TOKENIZZAZIONE
+#   2. NODI (AST)
+#   3. PARSER DINAMICO
+#   4. INTERPRETE
+#
+# Perchè l'ho fatto?
+#
+# Ho iniziato questo progetto per puro interesse personale 
+# e perchè sinceramente odio i for e i while, quindi ho 
+# pensato di rimpiazzarli con un unico comando che trovo geniale: REPEAT
+#
+# Per più info guardate il README : ) 
+#
+# QUESTO PROGETTO E' COMPLETAMENTE AI-FREE
+#
+# ==========================================
+# Buona lettura del codice !
+# ==========================================
+
 
 # ==========================================
 # 1. TOKENIZZATORE (Gestisce anche i ritorni a capo)
 # ==========================================
+
 def tokenizza(codice):
-    pattern = r"'[^'\n]*'|\"[^\"]*\"|-=|\+=|\*=|\/=|--|\+\+|[a-zA-Zà-ù]+|\d+|[=+\-*/\"',!∞{}]"
+    #[\s\S]*? legge qualsiasi carattere incluso il \n senza mandare in crash il motore regex
+    pattern = r"//[ \t]*\r?\n[\s\S]*?//|//[^\n]*|'[^'\n]*'|\"[^\"]*\"|-=|\+=|\*=|\/=|--|\+\+|[a-zA-Zà-ù]+|\d+|[=+\-*/\"',!∞{}]"
     
     tokens = []
     for t in re.findall(pattern, codice):
+        if t.startswith("//"):
+            continue
+            
         t = t.strip()
         if not t: 
             continue
+            
         if (t.startswith("'") and t.endswith("'")) or (t.startswith('"') and t.endswith('"')):
             tokens.extend([t[0], t[1:-1], t[-1]])
         else:
             tokens.append(t)
             
     return tokens
+
 
 
 # ==========================================
@@ -27,9 +65,10 @@ class NumberNode:
         self.value = value
 
 class AssignNode:
-    def __init__(self, var_name, value_node):
+    def __init__(self, var_name, value_node, is_var=False):
         self.var_name = var_name
         self.value_node = value_node
+        self.is_var=is_var
 
 class PrintNode:
     # AGGIORNATO: Ora accetta content, printype (print/printn) e is_var (True/False)
@@ -73,6 +112,20 @@ class RepeatNode:
         self.is_var = is_var
 
 
+def estrai_blocco(tokens, posizione):
+    # posizione = indice del '{'
+    profondita = 0
+    inizio = posizione + 1
+    while posizione < len(tokens):
+        if tokens[posizione] == '{':
+            profondita += 1
+        elif tokens[posizione] == '}':
+            profondita -= 1
+            if profondita == 0:
+                return tokens[inizio:posizione], posizione + 1  # corpo, indice dopo '}'
+                # quindi, praticamente, trova tutti i tokens tra le parentesi e li restituisce, saltando la }
+        posizione += 1
+    raise SyntaxError("Manca una '}'!")
 
 # ==========================================
 # 3. PARSER DINAMICO (Scorre i token con un ciclo)
@@ -83,23 +136,45 @@ def parse(tokens):
     
     while posizione < len(tokens):
         if posizione < len(tokens) and re.match(r'[a-zA-Z]+', tokens[posizione]):
-            
-            # --- ASSEGNA ---
-            if posizione + 1 < len(tokens) and tokens[posizione+1] == '=':
-                valore_num = tokens[posizione+2]
-                if valore_num == '∞':
-                    valore_num = float('inf')
+
+            # == REPEAT == #
+
+            if tokens[posizione] == 'repeat':
+                conteggio = tokens[posizione+1]
+                if conteggio.isdigit():
+                    nodo_conteggio, is_var = int(conteggio), False
                 else:
-                    try:
-                        valore_num = int(valore_num)
-                    except ValueError:
-                        print("Numero non valido!")
-                        break  
-                
-                nome_var = tokens[posizione]          
-                nodo_assegnazione = AssignNode(nome_var, NumberNode(valore_num))
-                istruzioni.append(nodo_assegnazione)
-                posizione += 3
+                    nodo_conteggio, is_var = conteggio, True      # es. repeat n { ... }
+
+                corpo_token, posizione = estrai_blocco(tokens, posizione + 2)
+                corpo = parse(corpo_token)                        # ricorsione: riusi tutto il parser
+                istruzioni.append(RepeatNode(nodo_conteggio, corpo, is_var))
+
+
+            # --- ASSEGNA ---
+            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '=':
+                if re.match(r'[a-zA-Z]+', tokens[posizione+2]):
+                    valore_num = tokens[posizione+2]
+                    
+                    nome_var = tokens[posizione]          
+                    nodo_assegnazione = AssignNode(nome_var, valore_num, is_var=True)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+                else:
+                    valore_num = tokens[posizione+2]
+                    if valore_num == '∞':
+                        valore_num = float('inf')
+                    else:
+                        try:
+                            valore_num = int(valore_num)
+                        except ValueError:
+                            print("Numero non valido!")
+                            break  
+                    
+                    nome_var = tokens[posizione]          
+                    nodo_assegnazione = AssignNode(nome_var, NumberNode(valore_num), is_var=False)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
                 
             # --- STAMPA ---
             elif tokens[posizione] in ['print','printn']:
@@ -198,6 +273,7 @@ def parse(tokens):
                     nodo_assegnazione = MulVarNumNode(nome_var, valore_somma, is_var=True)
                     istruzioni.append(nodo_assegnazione)
                     posizione += 3
+
             else:
                 posizione += 1
         else:
@@ -218,10 +294,15 @@ def esegui(nodo, ambiente):
         return nodo.value
     
     elif isinstance(nodo, AssignNode):
-        valore = esegui(nodo.value_node, ambiente)
+        if nodo.is_var:
+            if nodo.value_node not in ambiente:
+                raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
+            valore = ambiente[nodo.value_node]
+        else:
+            valore = esegui(nodo.value_node, ambiente)
         ambiente[nodo.var_name] = valore
         return valore
-        
+
     elif isinstance(nodo, PrintNode):
         # RISOLUZIONE: Decide cosa stampare
         if nodo.is_var:
@@ -286,27 +367,44 @@ def esegui(nodo, ambiente):
         else:
             raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
 
+    # == REPEAT == #
+
+    elif isinstance(nodo, RepeatNode):
+        if nodo.is_var:
+            if nodo.count not in ambiente:
+                raise SyntaxError(f"La variabile {nodo.count} non esiste!!")
+            volte = ambiente[nodo.count]
+        else:
+            volte = nodo.count
+
+        for _ in range(volte):
+            esegui(nodo.body, ambiente)
+
+
 
 # ==========================================
 # TEST DI ESECUZIONE
 # ==========================================
 #∞∞∞∞∞∞∞ ecco qui il simbolo, così è più facile prenderlo
-codice_sorgente = """
-r=5
-g=5
-r*=g
-r++
-g--
-printn r
-print g
-"""
-ambiente_memoria = {}
-elenco_token = tokenizza(codice_sorgente)
-albero_ast = parse(elenco_token)
 
-print("--- OUTPUT DEL CODICE ---")
-esegui(albero_ast, ambiente_memoria)
-print("\n-------------------------\n")
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        nome_file = sys.argv[1] # Prende il file da riga di comando (e.g. Fibonacci.gs)
+        try:
+            with open(nome_file, "r", encoding="utf-8") as file:
+                codice_sorgente = file.read()
+            ambiente_memoria = {}
+            elenco_token = tokenizza(codice_sorgente)
+            albero_ast = parse(elenco_token)
 
-print("Token estratti:", elenco_token)
-print("Stato finale memoria:", ambiente_memoria)
+            print("--- OUTPUT DEL CODICE ---")
+            esegui(albero_ast, ambiente_memoria)
+            print("\n-------------------------\n")
+
+            print("Token estratti:", elenco_token)
+            print("Stato finale memoria:", ambiente_memoria)
+
+        except FileNotFoundError:
+            print(f"Error: file '{nome_file}' does not exist!")
+    else:
+        print("Correct usage: .\\destems <file_name.gs>")
