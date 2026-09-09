@@ -102,6 +102,11 @@ class MulVarNumNode:
         self.var_name = var_name
         self.value_node = value_node
         self.is_var = is_var
+class DivVarNumNode:
+    def __init__(self, var_name, value_node, is_var=False):
+        self.var_name = var_name
+        self.value_node = value_node
+        self.is_var = is_var
 
 class IncrementNode:
     def __init__(self, var_name):
@@ -273,6 +278,27 @@ def parse(tokens):
                     nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=True)
                     istruzioni.append(nodo_assegnazione)
                     posizione += 3
+            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '/=':
+                if tokens[posizione+2].isdigit():
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                    
+                    if valore_somma == '∞':
+                        raise SyntaxError("Impossibile dividere per infinito!")
+                    else:
+                        valore_somma = int(valore_somma)
+                            
+                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=False)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
+                    
+                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
+                    nome_var = tokens[posizione]
+                    valore_somma = tokens[posizione+2]
+                            
+                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=True)
+                    istruzioni.append(nodo_assegnazione)
+                    posizione += 3
 
             # --- SOTTRAI (-=) ---
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '-=':
@@ -410,7 +436,20 @@ def esegui(nodo, ambiente):
             ambiente[nodo.var_name]*=da_moltiplicare
         else:
             raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
-
+    elif isinstance(nodo, DivVarNumNode):
+        if nodo.var_name in ambiente:
+            if nodo.is_var:
+                if nodo.value_node in ambiente:
+                    da_dividere = ambiente[nodo.value_node]
+                else:
+                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
+            else:
+                da_dividere = nodo.value_node
+            if da_dividere==0:
+                raise SyntaxError("Impossibile dividere per 0!")
+            ambiente[nodo.var_name]/=da_dividere
+        else:
+            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
     # == REPEAT == #
 
     elif isinstance(nodo, RepeatNode):
