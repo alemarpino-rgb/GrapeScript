@@ -65,7 +65,6 @@ def tokenizza(codice):
     return tokens
 
 
-
 # ==========================================
 # 2. STRUTTURA DEI NODI (AST)
 # ==========================================
@@ -74,10 +73,11 @@ class NumberNode:
         self.value = value
 
 class AssignNode:
-    def __init__(self, var_name, value_node, is_var=False):
+    def __init__(self, var_name, value_node, is_type, is_var=False):
         self.var_name = var_name
         self.value_node = value_node
         self.is_var=is_var
+        self.is_type=is_type
 
 class PrintNode:
     # AGGIORNATO: Ora accetta content, printype (print/printn) e is_var (True/False)
@@ -204,13 +204,24 @@ def parse(tokens):
             elif posizione + 1 < len(tokens) and tokens[posizione+1] == '=':
                 if re.match(r'[a-zA-Z]+', tokens[posizione+2]):
                     valore_num = tokens[posizione+2]
-                    
+                    type='var'
                     nome_var = tokens[posizione]          
-                    nodo_assegnazione = AssignNode(nome_var, valore_num, is_var=True)
+                    nodo_assegnazione = AssignNode(nome_var, valore_num, type, is_var=True)
                     istruzioni.append(nodo_assegnazione)
                     posizione += 3
+                elif tokens[posizione+2] in ['\'', '\"']:
+                    type='string'
+                    valore_num=tokens[posizione+3]
+                    if tokens[posizione+4] in ['\'', '\"']:
+                        nome_var = tokens[posizione]          
+                        nodo_assegnazione = AssignNode(nome_var, valore_num, type, is_var=False)
+                        istruzioni.append(nodo_assegnazione)
+                        posizione += 5
+                    else:
+                        raise SyntaxError("Dopo la dichiarazione di una stringa ci vogliono le \"!!")
                 else:
                     valore_num = tokens[posizione+2]
+                    type='int'
                     if valore_num == '∞':
                         valore_num = float('inf')
                     else:
@@ -221,7 +232,7 @@ def parse(tokens):
                             break  
                     
                     nome_var = tokens[posizione]          
-                    nodo_assegnazione = AssignNode(nome_var, NumberNode(valore_num), is_var=False)
+                    nodo_assegnazione = AssignNode(nome_var, NumberNode(valore_num),type, is_var=False)
                     istruzioni.append(nodo_assegnazione)
                     posizione += 3
                 
@@ -369,7 +380,10 @@ def esegui(nodo, ambiente):
                 raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
             valore = ambiente[nodo.value_node]
         else:
-            valore = esegui(nodo.value_node, ambiente)
+            if nodo.is_type=='string':
+                valore=nodo.value_node
+            elif nodo.is_type=='int':
+                valore = esegui(nodo.value_node, ambiente)
         ambiente[nodo.var_name] = valore
         return valore
 
