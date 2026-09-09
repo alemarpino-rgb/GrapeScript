@@ -1,5 +1,7 @@
 import re
 import sys
+import operator
+
 
 
 # ==========================================
@@ -30,6 +32,13 @@ import sys
 # Buona lettura del codice !
 # ==========================================
 
+# Associazioni tra la stringa e la funzione logica
+operatori = {
+    '<': operator.lt,
+    '>': operator.gt,
+    '==': operator.eq,
+    '!=':operator.ne
+}
 
 # ==========================================
 # 1. TOKENIZZATORE (Gestisce anche i ritorni a capo)
@@ -37,7 +46,7 @@ import sys
 
 def tokenizza(codice):
     #[\s\S]*? legge qualsiasi carattere incluso il \n senza mandare in crash il motore regex
-    pattern = r"//[ \t]*\r?\n[\s\S]*?//|//[^\n]*|'[^'\n]*'|\"[^\"]*\"|-=|\+=|\*=|\/=|--|\+\+|[a-zA-Zà-ù]+|\d+|[=+\-*/\"',!∞{}]"
+    pattern = r"//[ \t]*\r?\n[\s\S]*?//|//[^\n]*|'[^'\n]*'|\"[^\"]*\"|-=|==|\+=|\*=|\/=|%%|!=|--|>|<|\+\+|[a-zA-Zà-ù_][a-zA-Zà-ù0-9_]*|\d+|[=+\-*/\"',!∞{}]"
     
     tokens = []
     for t in re.findall(pattern, codice):
@@ -110,6 +119,14 @@ class RepeatNode:
         self.count = count      # int, oppure nome variabile se is_var=True
         self.body = body        # un ProgramNode
         self.is_var = is_var
+class IfNode:
+    def __init__(self, var_name, body, confront, operand, elsebody,is_var=False ):
+        self.var_name = var_name      # int, oppure nome variabile se is_var=True
+        self.body = body        # un ProgramNode
+        self.is_var = is_var
+        self.operand = operand
+        self.confront=confront
+        self.else_body=elsebody
 
 
 def estrai_blocco(tokens, posizione):
@@ -149,6 +166,33 @@ def parse(tokens):
                 corpo_token, posizione = estrai_blocco(tokens, posizione + 2)
                 corpo = parse(corpo_token)                        # ricorsione: riusi tutto il parser
                 istruzioni.append(RepeatNode(nodo_conteggio, corpo, is_var))
+            elif tokens[posizione] == 'if':
+                if re.match(r'[a-zA-Z]+', tokens[posizione+1]):
+                    nome_var = tokens[posizione+1]
+                    if tokens[posizione+2] in ['<','>','==','%%','!=']:
+                        operando=tokens[posizione+2]
+                        if re.match(r'[a-zA-Z]+', tokens[posizione+3]):
+                            confronto=tokens[posizione+3]
+                            is_var=True
+                        else:
+                            confronto=tokens[posizione+3]
+                            is_var=False
+                        corpo_token, posizione = estrai_blocco(tokens, posizione + 4)
+                        corpo = parse(corpo_token)    
+                        # Controllo: c'è un else?
+                        corpo_else = None
+
+                        if posizione < len(tokens) and tokens[posizione] == 'else':
+                            else_token, posizione = estrai_blocco(tokens, posizione + 1)
+                            corpo_else = parse(else_token)
+
+                        istruzioni.append(IfNode(nome_var, corpo, confronto, operando,corpo_else, is_var ))
+
+                else:
+                    raise SyntaxError(f"Ci vuole una variabile per il confronto!")    # es. repeat n { ... }
+            elif tokens[posizione] == 'else':
+                raise SyntaxError("'else' senza un 'if' che lo precede!")
+
 
 
             # --- ASSEGNA ---
@@ -379,6 +423,32 @@ def esegui(nodo, ambiente):
 
         for _ in range(volte):
             esegui(nodo.body, ambiente)
+    elif isinstance(nodo, IfNode):
+        if nodo.var_name in ambiente:
+            valore1=ambiente[nodo.var_name]
+            if nodo.is_var:
+                if nodo.confront not in ambiente:
+                    raise SyntaxError(f"La variabile {nodo.confront} non esiste!!")
+                valore2 = ambiente[nodo.confront]
+                operatore=nodo.operand
+            else:
+                try:
+                    valore2=int(nodo.confront)
+                except ValueError:
+                    raise SyntaxError(f"Numero non valido!")
+                operatore = nodo.operand
+        else:
+            raise SyntaxError(f"La variabile {nodo.confront} non esiste!!")
+        if operatore=='%%':
+            vero = (valore1 % valore2 == 0)
+        else:
+            vero = operatori[operatore](valore1, valore2)
+
+        if vero:
+            esegui(nodo.body, ambiente)
+        elif nodo.else_body is not None:
+            esegui(nodo.else_body, ambiente)
+
 
 
 
