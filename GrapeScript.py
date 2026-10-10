@@ -1,514 +1,577 @@
-import re
 import sys
-import operator
+import random
+import os
 
+ROSSO = "\033[91m"
+RESET = "\033[0m"
+os.system("")   # attiva i colori nel terminale di Windows
 
-
-# ==========================================
-# GrapeScript Di Alessandro Marpino
-# ==========================================
-#
-# I'm italian, so all the comments are in italian : )
-#
-# Com'è fatto questo interprete?
-#
-# E' composto da 4 parti principali: 
-#   1. TOKENIZZAZIONE
-#   2. NODI (AST)
-#   3. PARSER DINAMICO
-#   4. INTERPRETE
-#
-# Perchè l'ho fatto?
-#
-# Ho iniziato questo progetto per puro interesse personale 
-# e perchè sinceramente odio i for e i while, quindi ho 
-# pensato di rimpiazzarli con un unico comando che trovo geniale: REPEAT
-#
-# Per più info guardate il README : ) 
-#
-# QUESTO PROGETTO E' COMPLETAMENTE AI-FREE
-#
-# ==========================================
-# Buona lettura del codice !
-# ==========================================
-
-# Associazioni tra la stringa e la funzione logica
-operatori = {
-    '<': operator.lt,
-    '>': operator.gt,
-    '==': operator.eq,
-    '!=':operator.ne
-}
-
-# ==========================================
-# 1. TOKENIZZATORE (Gestisce anche i ritorni a capo)
-# ==========================================
+sys.set_int_max_str_digits(0)   # 0 = nessun limite di digits
 
 def tokenizza(codice):
-    #[\s\S]*? legge qualsiasi carattere incluso il \n senza mandare in crash il motore regex
-    pattern = r"//[ \t]*\r?\n[\s\S]*?//|//[^\n]*|'[^'\n]*'|\"[^\"]*\"|-=|==|\+=|\*=|\/=|%%|!=|--|>|<|\+\+|[a-zA-Zà-ù_][a-zA-Zà-ù0-9_]*|\d+|[=+\-*/\"',!∞{}]"
-    
     tokens = []
-    for t in re.findall(pattern, codice):
-        if t.startswith("//"):
-            continue
+    i = 0
+    lun = len(codice)
+    while i < lun:
+        c = codice[i]
+        
+        if c == '@':
+            i += 1
+            while i < lun and codice[i] not in '\n@':
+                i += 1
+            if i < lun and codice[i] == '@':
+                i += 1   # salta la @ di chiusura
+
+        elif c == '\n':
+            tokens.append(['A_CAPO', '\n'])
+            i += 1
+        elif c in ' \t':
+            i += 1
+        elif c.isalpha():
+            parola = ''
+            while i < lun and (codice[i].isalnum() or codice[i] == '_'):
+                parola += codice[i]
+                i += 1
+            if parola == 'print':
+                tokens.append(['STAMPA', parola])
+            elif parola== 'if':
+                tokens.append(['IF', parola])
+            elif parola== 'loop':
+                tokens.append(['LOOP', parola])
+            elif parola== 'repeat':
+                tokens.append(['REPEAT', parola])
+            elif parola== 'break':
+                tokens.append(['BREAK', parola])
+            elif parola== 'randint':
+                tokens.append(['RANDINT', parola])
+            elif parola== 'input':
+                tokens.append(['INPUT', parola])
+            elif parola == 'else':
+                tokens.append(['ELSE', parola])
+            elif parola == 'elif':
+                tokens.append(['ELIF', parola])
+            else:
+                tokens.append(['NOME_VAR', parola])
+        elif c.isdigit():
+            numstr = ''
+            while i < lun and codice[i].isdigit():
+                numstr += codice[i]
+                i += 1
+            try:
+                numstr=int(numstr)
+            except ValueError:
+                raise SyntaxError("Numero non valido")
             
-        t = t.strip()
-        if not t: 
-            continue
-            
-        if (t.startswith("'") and t.endswith("'")) or (t.startswith('"') and t.endswith('"')):
-            tokens.extend([t[0], t[1:-1], t[-1]])
+            tokens.append(['NUMERO', numstr])
+        elif c in '\'"':
+            delim = c
+            i += 1
+            testo = ''
+            while i < lun and codice[i] != delim:
+                testo += codice[i]
+                i += 1
+            if i >= lun:
+                raise SyntaxError("Stringa non chiusa")
+            i += 1  # salta la virgoletta di chiusura
+            tokens.append(['TESTO', testo])
+        elif codice[i:i+2] == '->':
+            tokens.append(['FRECCIA', '->'])
+            i += 2
+        elif codice[i:i+2] == '==':
+            tokens.append(['COMPARAZIONE_UGUALE', '=='])
+            i += 2
+        elif codice[i:i+2] == '<=':
+            tokens.append(['COMPARAZIONE_MINORE_UGUALE', '<='])
+            i += 2
+        elif codice[i:i+2] == '>=':
+            tokens.append(['COMPARAZIONE_MAGGIORE_UGUALE', '>='])
+            i += 2
+        elif codice[i:i+2] == '%%':
+            tokens.append(['COMPARAZIONE_DIVISIBILE', '%%'])
+            i += 2
+        elif codice[i] == '<':
+            tokens.append(['COMPARAZIONE_MINORE', '<'])
+            i += 1
+        elif codice[i] == '>':
+            tokens.append(['COMPARAZIONE_MAGGIORE', '>'])
+            i += 1
+        elif c == '=':
+            tokens.append(['UGUALE', '='])
+            i += 1
+        elif c == '+':
+            tokens.append(['PIU', '+'])
+            i += 1
+        elif c == '-':
+            tokens.append(['MENO', '-'])
+            i += 1
+        elif c == '*':
+            tokens.append(['PER', '*'])
+            i += 1
+        elif c == '/':
+            tokens.append(['DIVISO', '/'])
+            i += 1
+        elif c == '{':
+            tokens.append(['APRI_GRAFFA', '{'])
+            i += 1
+        elif c == '}':
+            tokens.append(['CHIUDI_GRAFFA', '}'])
+            i += 1
+        elif c == '(':
+            tokens.append(['APRI_TONDA', '('])
+            i += 1
+        elif c == ')':
+            tokens.append(['CHIUDI_TONDA', ')'])
+            i += 1
+        elif c == ',':
+            tokens.append(['VIRGOLA', ','])
+            i += 1
+                
         else:
-            tokens.append(t)
-            
+            raise SyntaxError(f"Carattere non riconosciuto: {c!r}")
+
     return tokens
 
+# Tipi disponibili per le conversioni con ->
+# Per aggiungerne uno nuovo basta una riga qui
+CONVERSIONI = {
+    'int': int,
+    'float': float,
+    'str': str,
+}
 
-# ==========================================
-# 2. STRUTTURA DEI NODI (AST)
-# ==========================================
-class NumberNode:
-    def __init__(self, value):
-        self.value = value
-
+class CastNode:
+    def __init__(self, valore, tipo):
+        self.valore = valore
+        self.tipo = tipo
 class AssignNode:
-    def __init__(self, var_name, value_node, is_type, is_var=False):
-        self.var_name = var_name
-        self.value_node = value_node
-        self.is_var=is_var
-        self.is_type=is_type
+    def __init__(self, nome_var, valore_var):
+        self.nome_var=nome_var
+        self.valore_var=valore_var
+
+class VarNode:
+    def __init__(self, nome_var):
+        self.nome_var = nome_var
 
 class PrintNode:
-    # AGGIORNATO: Ora accetta content, printype (print/printn) e is_var (True/False)
-    def __init__(self, content, printype, is_var=False):
-        self.content = content
-        self.printype = printype
-        self.is_var = is_var
+    def __init__(self, da_stampare):
+        self.da_stampare = da_stampare
 
-class SumVarNumNode:
-    def __init__(self, var_name, value_node, is_var=False):
-        self.var_name = var_name
-        self.value_node = value_node
-        self.is_var = is_var
-
-class SubVarNumNode:
-    def __init__(self, var_name, value_node, is_var=False):
-        self.var_name = var_name
-        self.value_node = value_node
-        self.is_var = is_var
-class MulVarNumNode:
-    def __init__(self, var_name, value_node, is_var=False):
-        self.var_name = var_name
-        self.value_node = value_node
-        self.is_var = is_var
-class DivVarNumNode:
-    def __init__(self, var_name, value_node, is_var=False):
-        self.var_name = var_name
-        self.value_node = value_node
-        self.is_var = is_var
-
-class IncrementNode:
-    def __init__(self, var_name):
-        self.var_name = var_name
-class DecrementNode:
-    def __init__(self, var_name):
-        self.var_name = var_name
+class InputNode:
+    def __init__(self, da_stampare):
+        self.da_stampare = da_stampare
 
 class ProgramNode:
     def __init__(self, instructions):
         self.instructions = instructions
-# REPEAT, che secondo me, è geniale
-class RepeatNode:
-    def __init__(self, count, body, is_var=False):
-        self.count = count      # int, oppure nome variabile se is_var=True
-        self.body = body        # un ProgramNode
-        self.is_var = is_var
+
+class NumberNode:
+    def __init__(self, number):
+        self.number = number
+
+class TextNode:
+    def __init__(self, text):
+        self.text = text
+
+
+class BinOpNode:
+    def __init__(self, sinistra, op, destra):
+        self.sinistra = sinistra
+        self.op = op
+        self.destra = destra
+
 class IfNode:
-    def __init__(self, var_name, body, confront, operand, elsebody,is_var=False ):
-        self.var_name = var_name      # int, oppure nome variabile se is_var=True
-        self.body = body        # un ProgramNode
-        self.is_var = is_var
-        self.operand = operand
-        self.confront=confront
-        self.else_body=elsebody
+    def __init__(self, rami, altrimenti):
+        self.rami = rami              # lista di (condizione, corpo)
+        self.altrimenti = altrimenti  # corpo dell'else, oppure None
 
+class RepeatNode:
+    def __init__(self, volte, body):
+        self.volte = volte
+        self.body = body
 
-def estrai_blocco(tokens, posizione):
-    # posizione = indice del '{'
-    profondita = 0
-    inizio = posizione + 1
-    while posizione < len(tokens):
-        if tokens[posizione] == '{':
-            profondita += 1
-        elif tokens[posizione] == '}':
-            profondita -= 1
-            if profondita == 0:
-                return tokens[inizio:posizione], posizione + 1  # corpo, indice dopo '}'
-                # quindi, praticamente, trova tutti i tokens tra le parentesi e li restituisce, saltando la }
-        posizione += 1
-    raise SyntaxError("Manca una '}'!")
+class LoopNode:
+    def __init__(self, body):
+        self.body = body
 
-# ==========================================
-# 3. PARSER DINAMICO (Scorre i token con un ciclo)
-# ==========================================
-def parse(tokens):
-    istruzioni = []
-    posizione = 0
-    
-    while posizione < len(tokens):
-        if posizione < len(tokens) and re.match(r'[a-zA-Z]+', tokens[posizione]):
+class BoolOpNode:
+    def __init__(self, sinistra, op, destra):
+        self.sinistra = sinistra
+        self.op = op
+        self.destra = destra
 
-            # == REPEAT == #
+class RandIntNode:
+    def __init__(self, rangemin, rangemax):
 
-            if tokens[posizione] == 'repeat':
-                conteggio = tokens[posizione+1]
-                if conteggio.isdigit():
-                    nodo_conteggio, is_var = int(conteggio), False
+        self.rangemin=rangemin
+        self.rangemax=rangemax
+
+class BreakNode:
+    pass
+
+class InterrompiLoop(Exception):
+    pass
+        
+# Grammatica del linguaggio (ogni riga = una funzione del parser):
+#
+# programma   -> istruzione*
+# blocco      -> '{' istruzione* '}'
+# istruzione  -> 'print' espressione
+#              | 'if' espressione blocco ('elif' espressione blocco)* ('else' blocco)?
+#              | NOME '=' espressione
+# espressione -> somma ( '==' somma )?
+# somma       -> termine ( ('+' | '-') termine )*
+# termine     -> valore ( ('*' | '/') valore )*
+# valore      -> NUMERO | TESTO | NOME | RANDINT
+
+class Parser:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.pos = 0
+
+    # ritorna la riga corrente per rendere gli errori più capibili
+    def riga(self):
+        return 1 + sum(1 for t in self.tokens[:self.pos] if t[0] == 'A_CAPO')
+    # --- strumenti di base ---
+
+    # attuale ritorna il token attuale, se i tokes sono finiti, ritorna FINE
+
+    def attuale(self):
+        if self.pos < len(self.tokens):
+            return self.tokens[self.pos]
+        return ['FINE', None]
+
+    # stessa cosa di attuale, solo che ritorna il token prossimo
+
+    def prossimo(self):
+        if self.pos + 1 < len(self.tokens):
+            return self.tokens[self.pos + 1]
+        return ['FINE', None]
+
+    # consuma serve ad aumentare di uno la posizione,
+    # e dato un tipo, ad esempio 'CHIUDI_GRAFFA' controlla che
+    # il token attuale corrisponda effettivamente al tipo  
+
+    def consuma(self, tipo):
+        tok = self.attuale()
+        if tok[0] != tipo:
+            raise SyntaxError(f"Atteso {tipo}, trovato {tok[1]!r}")
+        self.pos += 1
+        return tok
+
+    # salta gli a capo
+
+    def salta_a_capo(self):
+        while self.attuale()[0] == 'A_CAPO':
+            self.pos += 1
+
+    # Controlla se un token indica la fine di un istruzione
+
+    def fine_istruzione(self):
+        # dopo un'istruzione deve esserci un a capo, una } o la fine
+        if self.attuale()[0] not in ('A_CAPO', 'CHIUDI_GRAFFA', 'FINE'):
+            raise SyntaxError(f"Simbolo inatteso: {self.attuale()[1]!r}")
+
+    # --- istruzioni ---
+
+    # legge tutto il programma, saltando gli a capo con la funzione
+    # salta_a_capo, e lo chiude in un programnode 
+
+    def programma(self):
+        istruzioni = []
+        self.salta_a_capo()
+        while self.attuale()[0] != 'FINE':
+            istruzioni.append(self.istruzione())
+            self.salta_a_capo()
+        return ProgramNode(istruzioni)
+
+    # Legge tutto il blocco fra graffe e lo nodizza :)
+
+    def blocco(self):
+        self.consuma('APRI_GRAFFA')
+        istruzioni = []
+        self.salta_a_capo()
+        while self.attuale()[0] != 'CHIUDI_GRAFFA':
+            if self.attuale()[0] == 'FINE':
+                raise SyntaxError("Manca la } di chiusura")
+            istruzioni.append(self.istruzione())
+            self.salta_a_capo()
+        self.consuma('CHIUDI_GRAFFA')
+        return ProgramNode(istruzioni)
+
+    # Capisce l'attuale istruzione
+
+    def istruzione(self):
+        tipo = self.attuale()[0]
+
+        if tipo == 'STAMPA':
+            self.consuma('STAMPA')
+            self.consuma('APRI_TONDA')
+            nodo = PrintNode(self.espressione())
+            self.consuma('CHIUDI_TONDA')
+
+        elif tipo == 'IF':
+            self.consuma('IF')
+            rami = [(self.espressione(), self.blocco())]
+            altrimenti = None
+            while True:
+                # guarda oltre gli a capo per vedere se c'è un elif/else,
+                # ma se non c'è torna indietro
+                salvata = self.pos
+                self.salta_a_capo()
+                # se c'è elif, continua
+                if self.attuale()[0] == 'ELIF':
+                    self.consuma('ELIF')
+                    rami.append((self.espressione(), self.blocco()))
+                # se c'è else, stoppa
+                elif self.attuale()[0] == 'ELSE':
+                    self.consuma('ELSE')
+                    altrimenti = self.blocco()
+                    break
+                # sennò stoppa lo stesso. (casi = if e basta, if, elif e basta)
                 else:
-                    nodo_conteggio, is_var = conteggio, True      # es. repeat n { ... }
+                    self.pos = salvata
+                    break
 
-                corpo_token, posizione = estrai_blocco(tokens, posizione + 2)
-                corpo = parse(corpo_token)                        # ricorsione: riusi tutto il parser
-                istruzioni.append(RepeatNode(nodo_conteggio, corpo, is_var))
-            elif tokens[posizione] == 'if':
-                if re.match(r'[a-zA-Z]+', tokens[posizione+1]):
-                    nome_var = tokens[posizione+1]
-                    if tokens[posizione+2] in ['<','>','==','%%','!=']:
-                        operando=tokens[posizione+2]
-                        if re.match(r'[a-zA-Z]+', tokens[posizione+3]):
-                            confronto=tokens[posizione+3]
-                            is_var=True
-                        else:
-                            confronto=tokens[posizione+3]
-                            is_var=False
-                        corpo_token, posizione = estrai_blocco(tokens, posizione + 4)
-                        corpo = parse(corpo_token)    
-                        # Controllo: c'è un else?
-                        corpo_else = None
+            return IfNode(rami, altrimenti)
 
-                        if posizione < len(tokens) and tokens[posizione] == 'else':
-                            else_token, posizione = estrai_blocco(tokens, posizione + 1)
-                            corpo_else = parse(else_token)
+        elif tipo == 'REPEAT':
+            self.consuma('REPEAT')
+            volte = self.espressione()
+            corpo = self.blocco()
+            return RepeatNode(volte, corpo)
 
-                        istruzioni.append(IfNode(nome_var, corpo, confronto, operando,corpo_else, is_var ))
+        elif tipo == 'LOOP':
+            self.consuma('LOOP')
+            corpo = self.blocco()
+            return LoopNode(corpo)
 
-                else:
-                    raise SyntaxError(f"Ci vuole una variabile per il confronto!")    # es. repeat n { ... }
-            elif tokens[posizione] == 'else':
-                raise SyntaxError("'else' senza un 'if' che lo precede!")
+        elif tipo == 'BREAK':
+            self.consuma('BREAK')
+            nodo = BreakNode()
 
+        elif tipo == 'NOME_VAR' and self.prossimo()[0] == 'UGUALE':
+            nome = self.consuma('NOME_VAR')[1]
+            self.consuma('UGUALE')
+            nodo = AssignNode(nome, self.espressione())
 
-
-            # --- ASSEGNA ---
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '=':
-                if re.match(r'[a-zA-Z]+', tokens[posizione+2]):
-                    valore_num = tokens[posizione+2]
-                    type='var'
-                    nome_var = tokens[posizione]          
-                    nodo_assegnazione = AssignNode(nome_var, valore_num, type, is_var=True)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                elif tokens[posizione+2] in ['\'', '\"']:
-                    type='string'
-                    valore_num=tokens[posizione+3]
-                    if tokens[posizione+4] in ['\'', '\"']:
-                        nome_var = tokens[posizione]          
-                        nodo_assegnazione = AssignNode(nome_var, valore_num, type, is_var=False)
-                        istruzioni.append(nodo_assegnazione)
-                        posizione += 5
-                    else:
-                        raise SyntaxError("Dopo la dichiarazione di una stringa ci vogliono le \"!!")
-                else:
-                    valore_num = tokens[posizione+2]
-                    type='int'
-                    if valore_num == '∞':
-                        valore_num = float('inf')
-                    else:
-                        try:
-                            valore_num = int(valore_num)
-                        except ValueError:
-                            print("Numero non valido!")
-                            break  
-                    
-                    nome_var = tokens[posizione]          
-                    nodo_assegnazione = AssignNode(nome_var, NumberNode(valore_num),type, is_var=False)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                
-            # --- STAMPA ---
-            elif tokens[posizione] in ['print','printn']:
-                printf = tokens[posizione]
-                
-                # Caso testo (es: print 'Ciao')
-                if tokens[posizione+1] in ['"', "'"]:
-                    posizione += 2
-                    stringa = tokens[posizione]
-                    posizione += 1
-
-                    # is_var=False (è un testo fisso)
-                    nodo_stampa = PrintNode(stringa, printf, is_var=False)
-                    istruzioni.append(nodo_stampa)
-                    posizione += 1  # Salta il delimitatore di chiusura
-
-                # Caso variabile (es: print r)
-                elif re.match(r'[a-zA-Z]+', tokens[posizione+1]):
-                    # is_var=True (è una variabile)
-                    nodo_stampa = PrintNode(tokens[posizione+1], printf, is_var=True)
-                    istruzioni.append(nodo_stampa)
-                    posizione += 2
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '++':
-                nome_var=tokens[posizione]
-                nodo_assegnazione = IncrementNode(nome_var)
-                istruzioni.append(nodo_assegnazione)
-                posizione += 2
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '--':
-                nome_var=tokens[posizione]
-                nodo_assegnazione = DecrementNode(nome_var)
-                istruzioni.append(nodo_assegnazione)
-                posizione += 2
-            # --- SOMMA (+=) ---
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '+=':
-                if tokens[posizione+2].isdigit():
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                    
-                    if valore_somma == '∞':
-                        valore_somma = float('inf')
-                    else:
-                        valore_somma = int(valore_somma)
-                            
-                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=False)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                    
-                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                            
-                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=True)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '/=':
-                if tokens[posizione+2].isdigit():
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                    
-                    if valore_somma == '∞':
-                        raise SyntaxError("Impossibile dividere per infinito!")
-                    else:
-                        valore_somma = int(valore_somma)
-                            
-                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=False)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                    
-                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                            
-                    nodo_assegnazione = SumVarNumNode(nome_var, valore_somma, is_var=True)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-
-            # --- SOTTRAI (-=) ---
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '-=':
-                if tokens[posizione+2].isdigit():
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                    
-                    if valore_somma == '∞':
-                        valore_somma = float('inf')
-                    else:
-                        valore_somma = int(valore_somma)
-                            
-                    nodo_assegnazione = SubVarNumNode(nome_var, valore_somma, is_var=False)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                    
-                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                            
-                    nodo_assegnazione = SubVarNumNode(nome_var, valore_somma, is_var=True)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-            elif posizione + 1 < len(tokens) and tokens[posizione+1] == '*=':
-                if tokens[posizione+2].isdigit():
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                    
-                    if valore_somma == '∞':
-                        valore_somma = float('inf')
-                    else:
-                        valore_somma = int(valore_somma)
-                            
-                    nodo_assegnazione = MulVarNumNode(nome_var, valore_somma, is_var=False)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-                    
-                elif re.match(r'[a-zA-Z]+', tokens[posizione+2]):
-                    nome_var = tokens[posizione]
-                    valore_somma = tokens[posizione+2]
-                            
-                    nodo_assegnazione = MulVarNumNode(nome_var, valore_somma, is_var=True)
-                    istruzioni.append(nodo_assegnazione)
-                    posizione += 3
-
-            else:
-                posizione += 1
         else:
-            posizione += 1
+            raise SyntaxError(f"Istruzione non valida vicino a {self.attuale()[1]!r}")
 
-    return ProgramNode(istruzioni)
+        self.fine_istruzione()
+        return nodo
 
+    # --- espressioni (dalla precedenza più bassa alla più alta) ---
 
-# ==========================================
-# 4. INTERPRETE / ESECUTORE
-# ==========================================
+    # Creano i nodi di determinate cose
+
+    # controlla che il casting sia valido
+
+    def espressione(self):
+        espr = self.confronto()
+        while self.attuale()[0] == 'FRECCIA':
+            self.consuma('FRECCIA')
+            tipo = self.consuma('NOME_VAR')[1]
+            if tipo not in CONVERSIONI:
+                raise SyntaxError(f"Tipo sconosciuto: {tipo!r}")
+            espr = CastNode(espr, tipo)
+        return espr
+
+    def confronto(self):
+        sx = self.somma()
+        if self.attuale()[0] in ['COMPARAZIONE_UGUALE', 'COMPARAZIONE_MINORE_UGUALE', 'COMPARAZIONE_MAGGIORE_UGUALE', 'COMPARAZIONE_MINORE', 'COMPARAZIONE_MAGGIORE', 'COMPARAZIONE_DIVISIBILE']:
+            op = self.consuma(self.attuale()[0])[1]
+            dx = self.somma()
+            return BoolOpNode(sx, op, dx)
+        return sx
+
+    def somma(self):
+        espr = self.termine()
+        while self.attuale()[0] in ('PIU', 'MENO'):
+            op = self.consuma(self.attuale()[0])[1]
+            espr = BinOpNode(espr, op, self.termine())
+        return espr
+
+    def termine(self):
+        espr = self.valore()
+        while self.attuale()[0] in ('PER', 'DIVISO'):
+            op = self.consuma(self.attuale()[0])[1]
+            espr = BinOpNode(espr, op, self.valore())
+        return espr
+
+    def valore(self):
+        tok = self.attuale()
+        if tok[0] == 'NUMERO':
+            self.pos += 1
+            return NumberNode(tok[1])
+        if tok[0] == 'TESTO':
+            self.pos += 1
+            return TextNode(tok[1])
+        if tok[0] == 'NOME_VAR':
+            self.pos += 1
+            return VarNode(tok[1])
+        if tok[0] == 'RANDINT':
+            self.consuma('RANDINT')
+            self.consuma('APRI_TONDA')
+            minimo = self.espressione()
+            self.consuma('VIRGOLA')
+            massimo = self.espressione()
+            self.consuma('CHIUDI_TONDA')
+            return RandIntNode(minimo, massimo)
+        if tok[0] == 'INPUT':
+            self.consuma('INPUT')
+            self.consuma('APRI_TONDA')
+            nodo=self.espressione()
+            self.consuma('CHIUDI_TONDA')
+            return InputNode(nodo)
+        
+        raise SyntaxError(f"Valore atteso, trovato {tok[1]!r}")
+
+# errore!!
+class ErroreGrape(Exception):
+    pass
+
+def parse(tokens):
+    parser = Parser(tokens)
+    # prova a parsare
+    try:
+        return parser.programma()
+    # a mano che non arrivi un errore
+    except SyntaxError as e:
+        raise ErroreGrape(f"riga {parser.riga()}: {e}")
+
+# Analizza ogni nodo e lo esegue
+
 def esegui(nodo, ambiente):
     if isinstance(nodo, ProgramNode):
         for istruzione in nodo.instructions:
             esegui(istruzione, ambiente)
-            
-    elif isinstance(nodo, NumberNode):
-        return nodo.value
+
+    if isinstance(nodo, NumberNode):       
+        return int(nodo.number)
     
-    elif isinstance(nodo, AssignNode):
-        if nodo.is_var:
-            if nodo.value_node not in ambiente:
-                raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
-            valore = ambiente[nodo.value_node]
+    if isinstance(nodo, TextNode):       
+        return nodo.text
+    
+    if isinstance(nodo, VarNode):   
+        if nodo.nome_var in ambiente:    
+            return ambiente[nodo.nome_var]
         else:
-            if nodo.is_type=='string':
-                valore=nodo.value_node
-            elif nodo.is_type=='int':
-                valore = esegui(nodo.value_node, ambiente)
-        ambiente[nodo.var_name] = valore
-        return valore
+            raise SyntaxError(f"Variabile {nodo.nome_var} non esistente!")
+        
+    if isinstance(nodo, AssignNode):
+        ambiente[nodo.nome_var] = esegui(nodo.valore_var, ambiente)
 
-    elif isinstance(nodo, PrintNode):
-        # RISOLUZIONE: Decide cosa stampare
-        if nodo.is_var:
-            if nodo.content in ambiente:
-                da_stampare = ambiente[nodo.content]
-            else:
-                raise SyntaxError(f"La variabile {nodo.content} non esiste!!")
-        else:
-            da_stampare = nodo.content
+    if isinstance(nodo, PrintNode):
+        print(esegui(nodo.da_stampare, ambiente))
+
+    if isinstance(nodo, InputNode):
+            x = input(esegui(nodo.da_stampare, ambiente))
+            return x
+
+    if isinstance(nodo, BinOpNode):
+        sx = esegui(nodo.sinistra, ambiente)
+        dx = esegui(nodo.destra, ambiente)
+        if nodo.op == '+':
+            # se vede che i due operandi sono delle stringhe, le somma come tali, 
+            # altrimenti li somma come numeri
+
+            if isinstance(sx, str) or isinstance(dx, str):
+                return str(sx) + str(dx)
+            return sx + dx
+        
+        if nodo.op == '-':
+            # se vede che una delle due è una stringa, dice che non si possono sottrarre
+            # altrimenti li sottrae come numeri
+
+            if isinstance(sx, str) or isinstance(dx, str):
+                raise TypeError("Non si può sottrarre un testo")
+            return sx - dx
+        
+        if nodo.op == '*':
+            if isinstance(sx, str) and isinstance(dx, str):
+                raise TypeError("Non si può moltiplicare 2 testi")
+            return sx * dx
+        
+        if nodo.op == '/':
+            if isinstance(sx, str) or isinstance(dx, str):
+                raise TypeError("Non si può dividere i testi")
+            if dx==0:
+                raise SyntaxError("Non si puo' dividere per 0!!")
             
-        # Decide se andare a capo
-        if nodo.printype == 'printn':
-            print(da_stampare, end='\n')
-        else:
-            print(da_stampare, end='')
-    elif isinstance(nodo, IncrementNode):
-        if nodo.var_name in ambiente:
-            ambiente[nodo.var_name]+=1
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
-    elif isinstance(nodo, DecrementNode):
-        if nodo.var_name in ambiente:
-            ambiente[nodo.var_name]-=1
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
-    elif isinstance(nodo, SumVarNumNode):
-        if nodo.var_name in ambiente:
-            if nodo.is_var:
-                if nodo.value_node in ambiente:
-                    da_sommare = ambiente[nodo.value_node]
-                else:
-                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
-            else:
-                da_sommare = nodo.value_node
-            ambiente[nodo.var_name]+=da_sommare
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
+            return sx / dx
+
+    if isinstance(nodo, BoolOpNode):
+            sx = esegui(nodo.sinistra, ambiente)
+            dx = esegui(nodo.destra, ambiente)
+
+            if nodo.op == '==':
+                return sx == dx
             
-    elif isinstance(nodo, SubVarNumNode):
-        if nodo.var_name in ambiente:
-            if nodo.is_var:
-                if nodo.value_node in ambiente:
-                    da_sottrarre = ambiente[nodo.value_node]
-                else:
-                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
-            else:
-                da_sottrarre = nodo.value_node
-            ambiente[nodo.var_name]-=da_sottrarre
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
+            if nodo.op == '<=':
+                return sx <= dx
+            
+            if nodo.op == '>=':
+                return sx >= dx
 
-    elif isinstance(nodo, MulVarNumNode):
-        if nodo.var_name in ambiente:
-            if nodo.is_var:
-                if nodo.value_node in ambiente:
-                    da_moltiplicare = ambiente[nodo.value_node]
-                else:
-                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
-            else:
-                da_moltiplicare = nodo.value_node
-            ambiente[nodo.var_name]*=da_moltiplicare
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
-    elif isinstance(nodo, DivVarNumNode):
-        if nodo.var_name in ambiente:
-            if nodo.is_var:
-                if nodo.value_node in ambiente:
-                    da_dividere = ambiente[nodo.value_node]
-                else:
-                    raise SyntaxError(f"La variabile {nodo.value_node} non esiste!!")
-            else:
-                da_dividere = nodo.value_node
-            if da_dividere==0:
-                raise SyntaxError("Impossibile dividere per 0!")
-            ambiente[nodo.var_name]/=da_dividere
-        else:
-            raise SyntaxError(f"La variabile {nodo.var_name} non esiste!!")
-    # == REPEAT == #
+            if nodo.op == '<':
+                return sx < dx
+                        
+            if nodo.op == '>':
+                return sx > dx
+            
+            # Controlla se x è divisibile per y
+            if nodo.op == '%%':
+                return sx % dx == 0
+            
+    if isinstance(nodo, IfNode):
+        # vede i nodi (false/true, corpo)
+        for condizione, corpo in nodo.rami:
+            # vede se sono da eseguire
+            if esegui(condizione, ambiente):
+                esegui(corpo, ambiente)
+                return
+        if nodo.altrimenti is not None:
+            esegui(nodo.altrimenti, ambiente)
 
-    elif isinstance(nodo, RepeatNode):
-        if nodo.is_var:
-            if nodo.count not in ambiente:
-                raise SyntaxError(f"La variabile {nodo.count} non esiste!!")
-            volte = ambiente[nodo.count]
-        else:
-            volte = nodo.count
+    if isinstance(nodo, BreakNode):
+        raise InterrompiLoop()
 
-        for _ in range(volte):
-            esegui(nodo.body, ambiente)
-    elif isinstance(nodo, IfNode):
-        if nodo.var_name in ambiente:
-            valore1=ambiente[nodo.var_name]
-            if nodo.is_var:
-                if nodo.confront not in ambiente:
-                    raise SyntaxError(f"La variabile {nodo.confront} non esiste!!")
-                valore2 = ambiente[nodo.confront]
-                operatore=nodo.operand
-            else:
-                try:
-                    valore2=int(nodo.confront)
-                except ValueError:
-                    raise SyntaxError(f"Numero non valido!")
-                operatore = nodo.operand
-        else:
-            raise SyntaxError(f"La variabile {nodo.confront} non esiste!!")
-        if operatore=='%%':
-            vero = (valore1 % valore2 == 0)
-        else:
-            vero = operatori[operatore](valore1, valore2)
+    if isinstance(nodo, LoopNode):
+        try:
+            while True:
+                esegui(nodo.body, ambiente)
+        except InterrompiLoop:
+            pass
 
-        if vero:
-            esegui(nodo.body, ambiente)
-        elif nodo.else_body is not None:
-            esegui(nodo.else_body, ambiente)
+    if isinstance(nodo, RepeatNode):
+        try:
+            for _ in range(int(esegui(nodo.volte, ambiente))):
+                esegui(nodo.body, ambiente)
+        except InterrompiLoop:
+            pass
+
+    if isinstance(nodo, RandIntNode):
+        return random.randint(esegui(nodo.rangemin, ambiente), esegui(nodo.rangemax, ambiente))
+
+    if isinstance(nodo, CastNode):
+        v = esegui(nodo.valore, ambiente)
+        try:
+            return CONVERSIONI[nodo.tipo](v)
+        except ValueError:
+            raise ValueError(f"Impossibile convertire {v!r} in {nodo.tipo}")
 
 
+# Una funzione che esegue tutto
 
+def esegui_tutto(codice):
 
-# ==========================================
-# TEST DI ESECUZIONE
-# ==========================================
-#∞∞∞∞∞∞∞ ecco qui il simbolo, così è più facile prenderlo
+    ambiente={}
+    tokens=tokenizza(codice)
+    #print(tokens)
+    istruzioni=parse(tokens)
+    #print(istruzioni)
+    esegui(istruzioni, ambiente)
+    return ambiente
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -516,18 +579,16 @@ if __name__ == "__main__":
         try:
             with open(nome_file, "r", encoding="utf-8") as file:
                 codice_sorgente = file.read()
-            ambiente_memoria = {}
-            elenco_token = tokenizza(codice_sorgente)
-            albero_ast = parse(elenco_token)
-
-            print("--- OUTPUT DEL CODICE ---")
-            esegui(albero_ast, ambiente_memoria)
-            print("\n-------------------------\n")
-
-            print("Token estratti:", elenco_token)
-            print("Stato finale memoria:", ambiente_memoria)
+            esegui_tutto(codice_sorgente)
 
         except FileNotFoundError:
             print(f"Error: file '{nome_file}' does not exist!")
+
+        except KeyboardInterrupt:
+            print("\nProgramma interrotto.")
+        except Exception as e:
+            print(f"{ROSSO}Errore: {e}{RESET}", file=sys.stderr)
+            sys.exit(1)
+
     else:
         print("Correct usage: .\\destems <file_name.gs>")
