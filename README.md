@@ -1,6 +1,6 @@
 # GrapeScript
 
-[icon/icon.ico]
+![logo](icon/icon.ico)
 
 **GrapeScript** è un piccolo linguaggio di programmazione interpretato, scritto in Python da zero: tokenizer, parser e interprete ad albero, senza librerie esterne.
 
