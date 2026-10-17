@@ -11,7 +11,7 @@ nome = input("Come ti chiami? ")
 print("Ciao, " + nome + "!")
 ```
 
-> Versione attuale: **0.1.0**
+> Versione attuale: **0.2.0**
 
 ---
 
@@ -27,36 +27,46 @@ print("Ciao, " + nome + "!")
   - [Conversioni con `->`](#conversioni-con--)
   - [Condizioni: `if` / `elif` / `else`](#condizioni-if--elif--else)
   - [Cicli: `repeat`, `loop` e `break`](#cicli-repeat-loop-e-break)
+  - [Liste](#liste)
+  - [Testi](#testi)
   - [Numeri casuali](#numeri-casuali)
 - [Esempi](#esempi)
 - [Errori](#errori)
 - [Limiti attuali](#limiti-attuali)
 - [Come funziona](#come-funziona)
-- [Roadmap](#roadmap)
+- [Novità della 0.2](#novità-della-02)
 
 ---
 
 ## Installazione
 
-Serve **Python 3.11 o superiore**.
+**Con l'installer (Windows):** scarica `Installer\GrapeScript-0.2.0-setup.exe` e avvialo. Non servono permessi di amministratore e non serve avere Python. L'installer aggiunge al PATH due comandi:
 
-Scarica il progetto e basta: non ci sono dipendenze da installare.
+| Comando | Cos'è |
+|---|---|
+| `grapescript` | l'interprete |
+| `destems` | il lanciatore: chiama `grapescript` passandogli gli stessi argomenti |
+
+**Dal codice sorgente:** serve **Python 3.11 o superiore**, non ci sono altre dipendenze.
 
 ## Esecuzione
 
 I programmi GrapeScript sono file di testo con estensione **`.gs`**.
 
-Su Windows:
-
 ```
-.\destems mio_programma.gs
+destems programma.gs          esegue un file
+destems                       apre la console interattiva
+destems --console             uguale
+destems --version             mostra la versione
 ```
 
 Oppure, su qualsiasi sistema, direttamente con Python:
 
 ```
-python GrapeScript.py mio_programma.gs
+python Grapescript.py programma.gs
 ```
+
+Nella **console** ogni riga viene eseguita subito e le variabili restano in memoria fino all'uscita. Si esce scrivendo `esci` (oppure Ctrl+C).
 
 ---
 
@@ -74,42 +84,46 @@ x = 5   @ commento a fine riga
 y = @ commento in mezzo @ 10
 ```
 
+Attenzione: dentro un commento una seconda `@` lo chiude.
+
 ### Variabili e valori
 
 Le variabili si creano assegnando un valore con `=`. Non serve dichiararne il tipo.
 
 ```
 eta = 17
+altezza = 1.75
 nome = "Grape"
-saluto = 'ciao'      @ vanno bene sia " che '
+voti = [7, 8.5, 6]
 ```
-
-I tipi di valore sono:
 
 | Tipo | Esempio |
 |---|---|
-| Numero intero | `42` |
-| Numero decimale | risultato di una divisione, o di `-> float` |
+| Numero intero | `42` (senza limite di cifre) |
+| Numero decimale | `3.14` |
 | Testo | `"ciao"` o `'ciao'` |
+| Lista | `[1, 2.5, "tre"]` |
 | Booleano | risultato di un confronto: `True` o `False` |
 
-I numeri interi non hanno limite di cifre.
+Le variabili si possono aggiornare con gli operatori di assegnazione:
+
+```
+x = 10
+x += 5      @ 15
+x *= 2      @ 30
+x -= 1      @ 29
+```
+
+Disponibili: `+=` `-=` `*=` `/=` `%=`.
 
 ### Stampa e input
 
-`print` stampa un valore. `input` mostra un messaggio e restituisce **come testo** quello che scrive l'utente:
+`print` stampa un valore. `input` mostra un messaggio e restituisce **sempre un testo**:
 
 ```
-print("Ciao mondo!")
 nome = input("Come ti chiami? ")
-print("Piacere, " + nome)
-```
-
-Se l'utente deve scrivere un numero, convertilo con `-> int`:
-
-```
 anni = input("Quanti anni hai? ") -> int
-print(anni + 1)
+print("L'anno prossimo ne avrai " + anni + 1)
 ```
 
 ### Operatori
@@ -122,13 +136,18 @@ print(anni + 1)
 | `-` | sottrazione | `5 - 2` | `3` |
 | `*` | moltiplicazione | `4 * 2` | `8` |
 | `/` | divisione | `7 / 2` | `3.5` |
+| `//` | divisione intera | `7 // 2` | `3` |
+| `%` | resto | `7 % 2` | `1` |
 
-`*` e `/` hanno la precedenza su `+` e `-`, come in matematica.
+`*`, `/`, `//` e `%` hanno la precedenza su `+` e `-`, come in matematica.
 
-Con il testo:
+Con testi e liste:
 
 - `+` unisce un testo a qualsiasi valore: `"Hai " + 3 + " anni"` diventa `Hai 3 anni`
-- `*` ripete un testo: `"ab" * 3` diventa `ababab`
+- `*` ripete: `"ab" * 3` diventa `ababab`, `[0] * 3` diventa `[0, 0, 0]`
+- `+` unisce due liste: `[1, 2] + [3]` diventa `[1, 2, 3]`
+
+> Le operazioni vanno da sinistra a destra, quindi `"totale: " + 2 + 3` dà `totale: 23`. Conviene calcolare prima in una variabile.
 
 **Confronti**
 
@@ -141,16 +160,14 @@ Con il testo:
 
 ### Conversioni con `->`
 
-La freccia `->` converte un valore in un altro tipo:
-
 ```
 x = "42" -> int        @ da testo a numero intero
-y = 7 / 2 -> int       @ 3, toglie la parte decimale
+y = 7.9 -> int         @ 7: toglie la parte decimale
 z = 5 -> float         @ 5.0
 t = 100 -> str         @ "100"
 ```
 
-Tipi disponibili: `int`, `float`, `str`.
+Tipi disponibili: `int`, `float`, `str`. La freccia vale per **tutta** l'espressione alla sua sinistra.
 
 ### Condizioni: `if` / `elif` / `else`
 
@@ -170,17 +187,15 @@ if voto >= 9 {
 
 ### Cicli: `repeat`, `loop` e `break`
 
-`repeat` ripete un blocco un numero preciso di volte:
+`repeat` ripete un blocco un numero preciso di volte, `loop` ripete finché non incontra un `break`:
 
 ```
+i = 1
 repeat 3 {
-    print("Hip hip hurrà!")
+    print(i)
+    i += 1
 }
-```
 
-`loop` ripete all'infinito, finché non incontra un `break`:
-
-```
 loop {
     risposta = input("Scrivi 'esci' per uscire: ")
     if risposta == "esci" {
@@ -189,7 +204,42 @@ loop {
 }
 ```
 
-`break` funziona anche dentro `repeat`.
+`break` esce dal ciclo più interno, sia `loop` sia `repeat`.
+
+### Liste
+
+```
+frutta = ["mela", "pera", "uva"]
+print(frutta[0])                  @ mela  (si conta da 0)
+frutta[1] = "kiwi"                @ modifica un elemento
+frutta += ["fico"]                @ aggiunge in fondo
+print(len(frutta))                @ 4
+print(frutta[len(frutta) - 1])    @ l'ultimo: fico
+
+griglia = [[0, 0, 0], [0, 0, 0]]  @ liste di liste
+griglia[1][2] = 9
+griglia[0][0] += 1
+```
+
+Per scorrere una lista si usa un indice:
+
+```
+i = 0
+repeat len(frutta) {
+    print(frutta[i])
+    i += 1
+}
+```
+
+### Testi
+
+Anche i testi hanno l'indice e la lunghezza:
+
+```
+parola = "grape"
+print(parola[0])       @ g
+print(len(parola))     @ 5
+```
 
 ### Numeri casuali
 
@@ -204,71 +254,30 @@ print("È uscito " + dado)
 
 ## Esempi
 
-### Fibonacci
+Nella cartella [`esempi`](esempi/) ci sono 40 programmi, dal più semplice ai più estremi:
 
-```
-a = 0
-b = 1
-repeat 10 {
-    print(a)
-    c = a + b
-    a = b
-    b = c
-}
-```
+- **le basi**: variabili, operatori, condizioni, cicli;
+- **algoritmi**: numeri primi, crivello di Eratostene, Euclide, conversione di base, numeri romani, radice di 2 con centinaia di cifre;
+- **liste e testi**: statistiche, ordinamento, ricerca binaria, matrici, palindromi, cifrario di Cesare;
+- **simulazioni**: tris contro il computer, gioco della vita, insieme di Mandelbrot;
+- **estremi**: pi greco con mille cifre, risolutore di sudoku, un interprete di Brainfuck e un **motore di scacchi**, tutti scritti in GrapeScript.
 
-Stampa: `0 1 1 2 3 5 8 13 21 34`
-
-### FizzBuzz
-
-```
-n = 1
-repeat 15 {
-    if n %% 15 {
-        print("FizzBuzz")
-    } elif n %% 3 {
-        print("Fizz")
-    } elif n %% 5 {
-        print("Buzz")
-    } else {
-        print(n)
-    }
-    n = n + 1
-}
-```
-
-### Indovina il numero
-
-```
-segreto = randint(1, 100)
-tentativi = 0
-print("Ho pensato un numero da 1 a 100!")
-loop {
-    g = input("Il tuo tentativo: ") -> int
-    tentativi = tentativi + 1
-    if g < segreto {
-        print("Più alto!")
-    } elif g > segreto {
-        print("Più basso!")
-    } else {
-        print("Indovinato in " + tentativi + " tentativi!")
-        break
-    }
-}
-```
+L'elenco completo è in [`esempi/README.md`](esempi/README.md).
 
 ---
 
 ## Errori
 
-Quando qualcosa va storto, GrapeScript stampa un messaggio **in rosso**, senza i dettagli interni di Python:
+Quando qualcosa va storto, GrapeScript stampa un messaggio **in rosso** e in italiano, senza i dettagli interni di Python:
 
 ```
 Errore: riga 3: Valore atteso, trovato ')'
 Errore: Variabile y non esistente!
+Errore: Indice 5 fuori dalla lista (che ha 3 elementi)
+Errore: Non si può usare '<' tra un testo e un numero
 ```
 
-Gli errori di sintassi indicano la riga. Quelli su caratteri non validi e quelli che avvengono durante l'esecuzione, per ora, no.
+Gli errori di sintassi indicano la riga. Quelli che avvengono durante l'esecuzione, per ora, no.
 
 Per fermare un programma, ad esempio un `loop` infinito, premi **Ctrl+C**.
 
@@ -278,23 +287,23 @@ Per fermare un programma, ad esempio un `loop` infinito, premi **Ctrl+C**.
 
 GrapeScript è giovane! Queste cose **non** sono ancora supportate:
 
-- parentesi nelle espressioni: `(1 + 2) * 3`
+- parentesi nelle espressioni: `(1 + 2) * 3` (calcola prima in una variabile)
 - numeri negativi scritti direttamente: `x = -5` (usa `x = 0 - 5`)
-- numeri decimali scritti direttamente: `3.14` (usa `314 / 100`)
-- `!=`, `and`, `or`, `not`
-- funzioni, liste e cicli `for`
+- `!=`, `and`, `or`, `not` (usa due `if` uno dentro l'altro)
+- funzioni scritte dall'utente
+- ciclo `for` (usa `repeat` con un indice)
 
 ---
 
 ## Come funziona
 
-L'interprete lavora in tre fasi, tutte in `GrapeScript.py`:
+L'interprete lavora in tre fasi, tutte in `Grapescript.py`:
 
 1. **Tokenizer** (`tokenizza`): trasforma il testo in una lista di *token*, come `NUMERO 5`, `PIU +`, `NOME_VAR x`.
 2. **Parser** (`Parser`): legge i token seguendo la grammatica e costruisce un **albero sintattico** di nodi (`PrintNode`, `IfNode`, `BinOpNode`...).
 3. **Interprete** (`esegui`): visita l'albero e lo esegue, tenendo i valori delle variabili in un dizionario chiamato `ambiente`.
 
-Grammatica semplificata:
+Grammatica:
 
 ```
 programma   -> istruzione*
@@ -304,14 +313,32 @@ istruzione  -> 'print' '(' espressione ')'
              | 'repeat' espressione blocco
              | 'loop' blocco
              | 'break'
-             | NOME '=' espressione
+             | NOME ('=' | '+=' | '-=' | '*=' | '/=' | '%=') espressione
+             | valore '[' espressione ']' ('=' | '+=' | ...) espressione
 espressione -> confronto ( '->' TIPO )*
 confronto   -> somma ( ('==' | '<' | '>' | '<=' | '>=' | '%%') somma )?
 somma       -> termine ( ('+' | '-') termine )*
-termine     -> valore ( ('*' | '/') valore )*
-valore      -> NUMERO | TESTO | NOME
+termine     -> valore ( ('*' | '/' | '//' | '%') valore )*
+valore      -> primario ( '[' espressione ']' )*
+primario    -> NUMERO | TESTO | NOME | lista
              | 'randint' '(' espressione ',' espressione ')'
              | 'input' '(' espressione ')'
+             | 'len' '(' espressione ')'
+lista       -> '[' ( espressione ( ',' espressione )* )? ']'
 ```
+
+---
+
+## Novità della 0.2
+
+- numeri decimali (`3.14`)
+- liste, indici (`l[0]`, `griglia[1][2]`) e modifica degli elementi (`l[0] = 5`)
+- `len` per liste e testi, indici anche sui testi
+- operatori `//`, `%`, `+=`, `-=`, `*=`, `/=`, `%=`
+- console interattiva, `--version`
+- installer per Windows con i comandi `grapescript` e `destems`
+- errori più chiari e in italiano
+
+---
 
 Fatto da Alessandro Marpino.

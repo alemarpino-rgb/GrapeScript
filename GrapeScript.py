@@ -2,6 +2,8 @@ import sys
 import random
 import os
 
+VERSIONE = "0.2.0"
+
 ROSSO = "\033[91m"
 RESET = "\033[0m"
 os.system("")   # attiva i colori nel terminale di Windows
@@ -50,15 +52,20 @@ def tokenizza(codice):
                 tokens.append(['ELSE', parola])
             elif parola == 'elif':
                 tokens.append(['ELIF', parola])
+            elif parola == 'len':
+                tokens.append(['LEN', parola])
             else:
                 tokens.append(['NOME_VAR', parola])
         elif c.isdigit():
             numstr = ''
-            while i < lun and codice[i].isdigit():
+            while i < lun and (codice[i].isdigit() or codice[i]=='.'):
                 numstr += codice[i]
                 i += 1
             try:
-                numstr=int(numstr)
+                if '.' in numstr:
+                    numstr=float(numstr)
+                else:
+                    numstr=int(numstr)
             except ValueError:
                 raise SyntaxError("Numero non valido")
             
@@ -89,6 +96,33 @@ def tokenizza(codice):
         elif codice[i:i+2] == '%%':
             tokens.append(['COMPARAZIONE_DIVISIBILE', '%%'])
             i += 2
+        elif codice[i:i+2] == '+=':
+            tokens.append(['PIU_UGUALE', '+='])
+            i += 2
+        elif codice[i:i+2] == '-=':
+            tokens.append(['MENO_UGUALE', '-='])
+            i += 2
+        elif codice[i:i+2] == '*=':
+            tokens.append(['PER_UGUALE', '*='])
+            i += 2
+        elif codice[i:i+2] == '/=':
+            tokens.append(['DIVISO_UGUALE', '/='])
+            i += 2
+        elif codice[i:i+2] == '%=':
+            tokens.append(['MODULO_UGUALE', '%='])
+            i += 2
+        elif codice[i:i+2] == '//':
+            tokens.append(['DIVISO_INTERO', '//'])
+            i += 2
+        elif c == '[':
+            tokens.append(['APRI_QUADRA', '['])
+            i += 1
+        elif c == ']':
+            tokens.append(['CHIUDI_QUADRA', ']'])
+            i += 1
+        elif codice[i] == '%':
+            tokens.append(['MODULO', '%'])
+            i += 1
         elif codice[i] == '<':
             tokens.append(['COMPARAZIONE_MINORE', '<'])
             i += 1
@@ -143,6 +177,7 @@ class CastNode:
     def __init__(self, valore, tipo):
         self.valore = valore
         self.tipo = tipo
+
 class AssignNode:
     def __init__(self, nome_var, valore_var):
         self.nome_var=nome_var
@@ -151,14 +186,6 @@ class AssignNode:
 class VarNode:
     def __init__(self, nome_var):
         self.nome_var = nome_var
-
-class PrintNode:
-    def __init__(self, da_stampare):
-        self.da_stampare = da_stampare
-
-class InputNode:
-    def __init__(self, da_stampare):
-        self.da_stampare = da_stampare
 
 class ProgramNode:
     def __init__(self, instructions):
@@ -199,11 +226,47 @@ class BoolOpNode:
         self.op = op
         self.destra = destra
 
+# La lista!!
+class ListNode:
+    def __init__(self, elementi):
+        self.elementi = elementi
+
+# lettura di un elemento: lista[indice]
+# I due elementi, ovviamente, sono lista (di che lista si tratta) e indice
+class IndexNode:
+    def __init__(self, lista, indice):
+        self.lista = lista
+        self.indice = indice
+
+# modifica di un elemento: lista[indice] = valore
+# Stessa cosa del nodo sopra, solo che ha anche il valore con cui cambiare lista[i]
+class IndexAssignNode:
+    def __init__(self, lista, indice, valore):
+        self.lista = lista
+        self.indice = indice
+        self.valore = valore
+
+# =====================
+# LE FUNZIONI BUILT-IN
+
+class PrintNode:
+    def __init__(self, da_stampare):
+        self.da_stampare = da_stampare
+
+class InputNode:
+    def __init__(self, da_stampare):
+        self.da_stampare = da_stampare
+
 class RandIntNode:
     def __init__(self, rangemin, rangemax):
-
         self.rangemin=rangemin
         self.rangemax=rangemax
+
+class LenghtNode:
+    def __init__(self, lista):
+        self.lista=lista
+
+# =====================
 
 class BreakNode:
     pass
@@ -349,10 +412,32 @@ class Parser:
             self.consuma('BREAK')
             nodo = BreakNode()
 
+        # assegnazione normale: x = espressione
         elif tipo == 'NOME_VAR' and self.prossimo()[0] == 'UGUALE':
             nome = self.consuma('NOME_VAR')[1]
             self.consuma('UGUALE')
             nodo = AssignNode(nome, self.espressione())
+
+        # assegnazione con operatore: x += espressione  diventa  x = x + espressione
+        elif tipo == 'NOME_VAR' and self.prossimo()[0] in ['PIU_UGUALE', 'MENO_UGUALE', 'PER_UGUALE', 'DIVISO_UGUALE', 'MODULO_UGUALE']:
+            nome = self.consuma('NOME_VAR')[1]
+            op = self.consuma(self.attuale()[0])[1]   # es. '+='
+            valore = BinOpNode(VarNode(nome), op[:-1], self.espressione())   # '+=' -> '+'
+            nodo = AssignNode(nome, valore)
+
+        # modifica di un elemento: lista[0] = 5   griglia[1][2] += 1
+        elif tipo == 'NOME_VAR' and self.prossimo()[0] == 'APRI_QUADRA':
+            bersaglio = self.valore()          # legge lista[0] come un valore normale...
+            if self.attuale()[0] == 'UGUALE':
+                self.consuma('UGUALE')
+                valore = self.espressione()
+            elif self.attuale()[0] in ['PIU_UGUALE', 'MENO_UGUALE', 'PER_UGUALE', 'DIVISO_UGUALE', 'MODULO_UGUALE']:
+                op = self.consuma(self.attuale()[0])[1]
+                valore = BinOpNode(bersaglio, op[:-1], self.espressione())
+            else:
+                raise SyntaxError(f"Atteso operatore di assegnazione dopo l'elemento della lista, trovato {self.attuale()[1]!r}")
+            # ...e poi lo "smonta" in lista e indice
+            nodo = IndexAssignNode(bersaglio.lista, bersaglio.indice, valore)
 
         else:
             raise SyntaxError(f"Istruzione non valida vicino a {self.attuale()[1]!r}")
@@ -393,12 +478,12 @@ class Parser:
 
     def termine(self):
         espr = self.valore()
-        while self.attuale()[0] in ('PER', 'DIVISO'):
+        while self.attuale()[0] in ('PER', 'DIVISO', 'DIVISO_INTERO', 'MODULO'):
             op = self.consuma(self.attuale()[0])[1]
             espr = BinOpNode(espr, op, self.valore())
         return espr
 
-    def valore(self):
+    def primario(self):
         tok = self.attuale()
         if tok[0] == 'NUMERO':
             self.pos += 1
@@ -423,8 +508,46 @@ class Parser:
             nodo=self.espressione()
             self.consuma('CHIUDI_TONDA')
             return InputNode(nodo)
+        # La lista!!
+        if tok[0] == 'APRI_QUADRA':
+            self.consuma('APRI_QUADRA')
+            elementi = []
+
+            # Se l'attuale non è una lista vuota: [] ... 
+            if self.attuale()[0] != 'CHIUDI_QUADRA':   
+                elementi.append(self.espressione())
+
+                # ... Accede ad ogni elemento 1 ad uno finchè a quadra non si chiude
+                while self.attuale()[0] == 'VIRGOLA':
+                    self.consuma('VIRGOLA')
+                    elementi.append(self.espressione())
+            self.consuma('CHIUDI_QUADRA')
+            return ListNode(elementi)
+
+        if tok[0]=='LEN':
+            self.consuma('LEN')
+            self.consuma('APRI_TONDA')
+            lista=self.espressione()
+            self.consuma('CHIUDI_TONDA')
+            return LenghtNode(lista)
         
         raise SyntaxError(f"Valore atteso, trovato {tok[1]!r}")
+    
+    # un valore seguito da zero o più indici: lista[0], griglia[1][2]
+    def valore(self):
+        # Nome della variabile, es Lista_Grape[0]
+        #                          ^^^^^^^^^^^
+        espr = self.primario()
+        # Vede la quadra
+        while self.attuale()[0] == 'APRI_QUADRA':
+            self.consuma('APRI_QUADRA')
+            # Legge il valore dentro
+            indice = self.espressione()
+            self.consuma('CHIUDI_QUADRA')
+            # Crea l'index node
+            espr = IndexNode(espr, indice)
+        # finchè le quadre non finiscono
+        return espr
 
 # errore!!
 class ErroreGrape(Exception):
@@ -439,6 +562,16 @@ def parse(tokens):
     except SyntaxError as e:
         raise ErroreGrape(f"riga {parser.riga()}: {e}")
 
+# controlla che l'indice sia un intero dentro la lista (o il testo)
+def controlla_indice(lista, i):
+    if not isinstance(lista, (list, str)):
+        raise TypeError(f"{lista!r} non è una lista")
+    if not isinstance(i, int):
+        raise TypeError(f"L'indice deve essere un numero intero, non {i!r}")
+    if i < -len(lista) or i >= len(lista):
+        raise IndexError(f"Indice {i} fuori dalla lista (che ha {len(lista)} elementi)")
+    return i
+
 # Analizza ogni nodo e lo esegue
 
 def esegui(nodo, ambiente):
@@ -447,7 +580,7 @@ def esegui(nodo, ambiente):
             esegui(istruzione, ambiente)
 
     if isinstance(nodo, NumberNode):       
-        return int(nodo.number)
+        return nodo.number
     
     if isinstance(nodo, TextNode):       
         return nodo.text
@@ -499,6 +632,21 @@ def esegui(nodo, ambiente):
                 raise SyntaxError("Non si puo' dividere per 0!!")
             
             return sx / dx
+
+        if nodo.op == '//':
+            if isinstance(sx, str) or isinstance(dx, str):
+                raise TypeError("Non si può dividere i testi")
+            if dx==0:
+                raise SyntaxError("Non si puo' dividere per 0!!")
+            
+            return sx // dx
+        if nodo.op == '%':
+            if isinstance(sx, str) or isinstance(dx, str):
+                raise TypeError("Non si può dividere i testi")
+            if dx == 0:
+                raise SyntaxError("Non si puo' dividere per 0!!")
+            
+            return sx % dx
 
     if isinstance(nodo, BoolOpNode):
             sx = esegui(nodo.sinistra, ambiente)
@@ -559,6 +707,28 @@ def esegui(nodo, ambiente):
             return CONVERSIONI[nodo.tipo](v)
         except ValueError:
             raise ValueError(f"Impossibile convertire {v!r} in {nodo.tipo}")
+        
+    # La lista!!
+    if isinstance(nodo, ListNode):
+        return [esegui(e, ambiente) for e in nodo.elementi]
+    
+    if isinstance(nodo, IndexNode):
+        lista = esegui(nodo.lista, ambiente)
+        i = controlla_indice(lista, esegui(nodo.indice, ambiente))
+        return lista[i]
+
+    if isinstance(nodo, IndexAssignNode):
+        lista = esegui(nodo.lista, ambiente)
+        if not isinstance(lista, list):
+            raise TypeError("Si possono modificare solo gli elementi di una lista")
+        i = controlla_indice(lista, esegui(nodo.indice, ambiente))
+        lista[i] = esegui(nodo.valore, ambiente)
+
+    if isinstance(nodo, LenghtNode):
+        lista = esegui(nodo.lista, ambiente)   # 4. mancava ambiente
+        if not isinstance(lista, (list, str)):
+            raise TypeError(f"len funziona solo con liste e testi, non con {lista!r}")
+        return len(lista)
 
 
 # Una funzione che esegue tutto
@@ -571,10 +741,59 @@ def esegui_tutto(codice):
     istruzioni=parse(tokens)
     #print(istruzioni)
     esegui(istruzioni, ambiente)
+
     return ambiente
 
+def esegui_console(codice, ambiente):
+
+    tokens=tokenizza(codice)
+    #print(tokens)
+    istruzioni=parse(tokens)
+    #print(istruzioni)
+    esegui(istruzioni, ambiente)
+    
+    return ambiente
+
+def console():
+    ambiente = {}
+
+    print('\n')
+    print('='*50)
+    print(f'BENVENUTO NELLA GRAPE_CONSOLE!!  (GrapeScript {VERSIONE})')
+    print('='*50)
+    print('Scrivi "esci" per uscire.')
+    print('\n')
+
+    while True:
+        try:
+            codice = input('>> ')
+        except (KeyboardInterrupt, EOFError):   # Ctrl+C o Ctrl+Z
+            print()
+            break
+
+        if codice.strip() in ('esci', 'exit'):
+            break
+
+        if codice.strip() == '':
+            codice = 'print("Hello, World!")'
+
+        try:
+            ambiente = esegui_console(codice, ambiente)
+        except KeyboardInterrupt:
+            print("\nInterrotto.")              # ferma il programma, non la console
+        except Exception as e:
+            print(f"{ROSSO}Errore: {e}{RESET}", file=sys.stderr)
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    # senza argomenti (o con "Console") parte la console,
+    # così anche il doppio clic sull'exe apre qualcosa di utile
+    if len(sys.argv) == 1 or sys.argv[1].lower() == '--console':
+        console()
+
+    elif sys.argv[1] in ('--version', '-v'):
+        print(f"GrapeScript {VERSIONE}")
+
+    else:
         nome_file = sys.argv[1] # Prende il file da riga di comando (e.g. Fibonacci.gs)
         try:
             with open(nome_file, "r", encoding="utf-8") as file:
@@ -582,13 +801,11 @@ if __name__ == "__main__":
             esegui_tutto(codice_sorgente)
 
         except FileNotFoundError:
-            print(f"Error: file '{nome_file}' does not exist!")
+            print(f"Errore: il file '{nome_file}' non esiste!")
 
         except KeyboardInterrupt:
             print("\nProgramma interrotto.")
+
         except Exception as e:
             print(f"{ROSSO}Errore: {e}{RESET}", file=sys.stderr)
             sys.exit(1)
-
-    else:
-        print("Correct usage: .\\destems <file_name.gs>")
