@@ -49,6 +49,8 @@ print("Ciao, " + nome + "!")
 
 **Dal codice sorgente:** serve **Python 3.11 o superiore**, non ci sono altre dipendenze.
 
+Inoltre, dalla versione 0.2.1 c'è anche **un'estensione per vscode**. Per installarla, vai nella cartella grapescript e leggi il README.
+
 ## Esecuzione
 
 I programmi GrapeScript sono file di testo con estensione **`.gs`**.
@@ -329,7 +331,9 @@ lista       -> '[' ( espressione ( ',' espressione )* )? ']'
 
 ---
 
-## Novità della 0.2
+## Novità della 0.2.0 e 0.2.1
+
+**Dalla 0.2.0**
 
 - numeri decimali (`3.14`)
 - liste, indici (`l[0]`, `griglia[1][2]`) e modifica degli elementi (`l[0] = 5`)
@@ -338,6 +342,11 @@ lista       -> '[' ( espressione ( ',' espressione )* )? ']'
 - console interattiva, `--version`
 - installer per Windows con i comandi `grapescript` e `destems`
 - errori più chiari e in italiano
+
+**Dalla 0.2.1**
+
+- Nuova estenzaione vscode (per più info guarda [Installazione](#installazione) oppure vai nella cartella grapescript/)
+- operatore divide che divide una stringa (es. divide('Ciao Mondo') = ['Ciao', 'Mondo'])
 
 ---
 

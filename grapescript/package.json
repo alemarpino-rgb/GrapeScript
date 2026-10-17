@@ -1,0 +1,37 @@
+{
+  "name": "grapescript",
+  "displayName": "GrapeScript",
+  "description": "Colori e supporto per il linguaggio GrapeScript (file .gs)",
+  "version": "0.2.0",
+  "publisher": "alessandromarpino",
+  "license": "SEE LICENSE IN LICENSE",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alemarpino-rgb/GrapeScript"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "grapescript",
+    "linguaggio",
+    "italiano"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "grapescript",
+      "aliases": ["GrapeScript", "grapescript"],
+      "extensions": [".gs"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "grapescript",
+      "scopeName": "source.grapescript",
+      "path": "./syntaxes/grapescript.tmLanguage.json"
+    }]
+  }
+}

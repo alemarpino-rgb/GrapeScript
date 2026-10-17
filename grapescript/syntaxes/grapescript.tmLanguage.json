@@ -1,0 +1,65 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "GrapeScript",
+	"patterns": [
+		{ "include": "#commenti" },
+		{ "include": "#strings" },
+		{ "include": "#conversioni" },
+		{ "include": "#keywords" },
+		{ "include": "#funzioni" },
+		{ "include": "#numeri" },
+		{ "include": "#operatori" }
+	],
+	"repository": {
+		"commenti": {
+			"name": "comment.line.grapescript",
+			"begin": "@",
+			"end": "@|$"
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.grapescript",
+					"begin": "\"",
+					"end": "\""
+				},
+				{
+					"name": "string.quoted.single.grapescript",
+					"begin": "'",
+					"end": "'"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.grapescript",
+				"match": "\\b(if|elif|else|repeat|loop|break)\\b"
+			}]
+		},
+		"funzioni": {
+			"name": "support.function.grapescript",
+			"match": "\\b(print|input|randint|len|divide)\\b"
+		},
+		"numeri": {
+			"name": "constant.numeric.grapescript",
+			"match": "\\b\\d+(\\.\\d+)?\\b"
+		},
+		"operatori": {
+			"patterns": [
+				{ "name": "keyword.operator.grapescript", "match": "%%" },
+				{ "name": "keyword.operator.comparison.grapescript", "match": "==|<=|>=|<|>" },
+				{ "name": "keyword.operator.assignment.grapescript", "match": "\\+=|-=|\\*=|/=|%=" },
+				{ "name": "keyword.operator.arithmetic.grapescript", "match": "//|\\+|-|\\*|/|%" },
+				{ "name": "keyword.operator.assignment.grapescript", "match": "=" }
+			]
+		},
+		"conversioni": {
+			"match": "(->)\\s*(int|float|str)\\b",
+			"captures": {
+				"1": { "name": "keyword.operator.grapescript" },
+				"2": { "name": "support.type.grapescript" }
+			}
+		}
+	},
+	"scopeName": "source.grapescript"
+}

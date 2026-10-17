@@ -54,6 +54,8 @@ def tokenizza(codice):
                 tokens.append(['ELIF', parola])
             elif parola == 'len':
                 tokens.append(['LEN', parola])
+            elif parola == 'divide':
+                tokens.append(['DIVIDE', parola])
             else:
                 tokens.append(['NOME_VAR', parola])
         elif c.isdigit():
@@ -265,6 +267,10 @@ class RandIntNode:
 class LenghtNode:
     def __init__(self, lista):
         self.lista=lista
+
+class DivideNode:
+    def __init__(self, stringa):
+        self.stringa=stringa
 
 # =====================
 
@@ -530,6 +536,12 @@ class Parser:
             lista=self.espressione()
             self.consuma('CHIUDI_TONDA')
             return LenghtNode(lista)
+        if tok[0]=='DIVIDE':
+            self.consuma('DIVIDE')
+            self.consuma('APRI_TONDA')
+            stringa=self.espressione()
+            self.consuma('CHIUDI_TONDA')
+            return DivideNode(stringa)
         
         raise SyntaxError(f"Valore atteso, trovato {tok[1]!r}")
     
@@ -729,6 +741,12 @@ def esegui(nodo, ambiente):
         if not isinstance(lista, (list, str)):
             raise TypeError(f"len funziona solo con liste e testi, non con {lista!r}")
         return len(lista)
+    
+    if isinstance(nodo, DivideNode):
+        stringa = esegui(nodo.stringa, ambiente)   # 4. mancava ambiente
+        if not isinstance(stringa, (str)):
+            raise TypeError(f"len funziona solo con liste e testi, non con {stringa!r}")
+        return stringa.split()
 
 
 # Una funzione che esegue tutto
@@ -751,12 +769,12 @@ def esegui_console(codice, ambiente):
     istruzioni=parse(tokens)
     #print(istruzioni)
     esegui(istruzioni, ambiente)
-    
+    print(ambiente)
     return ambiente
 
 def console():
     ambiente = {}
-
+    x='Ciao mondo'
     print('\n')
     print('='*50)
     print(f'BENVENUTO NELLA GRAPE_CONSOLE!!  (GrapeScript {VERSIONE})')
