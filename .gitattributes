@@ -1,0 +1,3 @@
+# I file .gs sono GrapeScript, non JavaScript/Gosu/Genie:
+# li escludiamo dal conteggio dei linguaggi di GitHub
+*.gs linguist-detectable=false
